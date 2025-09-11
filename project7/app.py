@@ -9,6 +9,9 @@ import time
 from tqdm import tqdm
 import base64
 import json
+from tqdm import tqdm
+from numpy.linalg import norm
+from insightface.app import FaceAnalysis
 
 app = Flask(__name__)
 CORS(app)
