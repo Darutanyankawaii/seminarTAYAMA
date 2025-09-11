@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Recognition & Age Estimation System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .video-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .video-container {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #f0f0f0;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .face-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .face-box {
+            position: absolute;
+            border: 3px solid #4CAF50;
+            border-radius: 8px;
+            background: rgba(76, 175, 80, 0.1);
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+            animation: facePulse 2s infinite;
+        }
+
+        .face-box.unknown {
+            border-color: #f44336;
+            background: rgba(244, 67, 54, 0.1);
+            box-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
+        }
+
+        .face-label {
+            position: absolute;
+            top: -25px;
+            left: 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .face-label.unknown {
+            background: rgba(244, 67, 54, 0.9);
+        }
+
+        .age-label {
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            background: rgba(255, 152, 0, 0.9);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        @keyframes facePulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.02); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        #videoStream {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+
+        .video-placeholder {
+            text-align: center;
+            color: #666;
+            font-size: 1.2rem;
+        }
+
+        .video-placeholder i {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #ccc;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .panel h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .settings-group {
+            margin-bottom: 20px;
+        }
+
+        .settings-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            border: none;
+        }
+
+        .slider-value {
+            min-width: 50px;
+            text-align: center;
+            font-weight: 600;
+            color: #4CAF50;
+        }
+
+        .face-results {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .face-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .face-item h4 {
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .face-matches {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .match-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            background: white;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        .match-name {
+            font-weight: 600;
+        }
+
+        .match-similarity {
+            color: #4CAF50;
+            font-weight: 600;
+        }
+
+        .age-badge {
+            background: linear-gradient(45deg, #FF9800, #F57C00);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 8px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .status-indicator.active {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+
+        .status-indicator.inactive {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.active .status-dot {
+            background: #4CAF50;
+        }
+
+        .status-indicator.inactive .status-dot {
+            background: #f44336;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #4CAF50;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-user-check"></i> Face Recognition & Age Estimation System</h1>
+            <p>Real-time face recognition and age estimation</p>
+        </div>
+
+        <div class="main-content">
+            <div class="video-section">
+                <div class="video-container">
+                    <img id="videoStream" style="display: none;" alt="Camera Feed">
+                    <div id="faceOverlay" class="face-overlay" style="display: none;"></div>
+                    <div id="videoPlaceholder" class="video-placeholder">
+                        <i class="fas fa-video"></i>
+                        <p>Please start the camera</p>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button id="startBtn" class="btn btn-primary">
+                        <i class="fas fa-play"></i> Start Camera
+                    </button>
+                    <button id="stopBtn" class="btn btn-danger" disabled>
+                        <i class="fas fa-stop"></i> Stop Camera
+                    </button>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="panel">
+                    <h3><i class="fas fa-cog"></i> Settings</h3>
+                    
+                    <div class="status-indicator inactive" id="statusIndicator">
+                        <div class="status-dot"></div>
+                        <span id="statusText">Camera Stopped</span>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="toleranceSlider">Recognition Threshold</label>
+                        <div class="slider-container">
+                            <input type="range" id="toleranceSlider" class="slider" 
+                                   min="0.1" max="1.0" step="0.1" value="0.4">
+                            <span class="slider-value" id="toleranceValue">0.4</span>
+                        </div>
+                    </div>
+
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="faceCount">0</div>
+                            <div class="stat-label">Faces Detected</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="fpsCounter">0</div>
+                            <div class="stat-label">FPS</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3><i class="fas fa-users"></i> Recognition Results</h3>
+                    <div id="faceResults" class="face-results">
+                        <p style="text-align: center; color: #666; padding: 20px;">
+                            Recognition results will appear when faces are detected
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isStreaming = false;
+        let faceDataInterval;
+        let fpsCounter = 0;
+        let lastFpsTime = Date.now();
+
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const videoStream = document.getElementById('videoStream');
+        const videoPlaceholder = document.getElementById('videoPlaceholder');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const toleranceSlider = document.getElementById('toleranceSlider');
+        const toleranceValue = document.getElementById('toleranceValue');
+        const faceResults = document.getElementById('faceResults');
+        const faceCount = document.getElementById('faceCount');
+        const fpsCounterElement = document.getElementById('fpsCounter');
+        const faceOverlay = document.getElementById('faceOverlay');
+
+        // カメラ開始
+        startBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/start_camera', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === 'started') {
+                    isStreaming = true;
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    
+                    videoStream.style.display = 'block';
+                    videoPlaceholder.style.display = 'none';
+                    faceOverlay.style.display = 'block';
+                    videoStream.src = '/video_feed';
+                    
+                    statusIndicator.className = 'status-indicator active';
+                    statusText.textContent = 'Camera Active';
+                    
+                    // 顔データの取得を開始
+                    startFaceDataPolling();
+                }
+            } catch (error) {
+                console.error('Camera start error:', error);
+                alert('Failed to start camera');
+            }
+        });
+
+        // カメラ停止
+        stopBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/stop_camera', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === 'stopped') {
+                    isStreaming = false;
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    
+                    videoStream.style.display = 'none';
+                    videoPlaceholder.style.display = 'block';
+                    faceOverlay.style.display = 'none';
+                    videoStream.src = '';
+                    
+                    statusIndicator.className = 'status-indicator inactive';
+                    statusText.textContent = 'Camera Stopped';
+                    
+                    // 顔データの取得を停止
+                    stopFaceDataPolling();
+                    
+                    // 結果をクリア
+                    faceResults.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Recognition results will appear when faces are detected</p>';
+                    faceCount.textContent = '0';
+                    faceOverlay.innerHTML = '';
+                }
+            } catch (error) {
+                console.error('Camera stop error:', error);
+            }
+        });
+
+        // 閾値スライダー
+        toleranceSlider.addEventListener('input', async () => {
+            const value = toleranceSlider.value;
+            toleranceValue.textContent = value;
+            
+            try {
+                await fetch('/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tolerance: parseFloat(value) })
+                });
+            } catch (error) {
+                console.error('Settings update error:', error);
+            }
+        });
+
+        // 顔データのポーリング
+        function startFaceDataPolling() {
+            faceDataInterval = setInterval(async () => {
+                if (!isStreaming) return;
+                
+                try {
+                    const response = await fetch('/face_data');
+                    const faces = await response.json();
+                    updateFaceResults(faces);
+                    updateFPS();
+                } catch (error) {
+                    console.error('Face data fetch error:', error);
+                }
+            }, 200); // 5FPS（より軽い負荷）
+        }
+
+        function stopFaceDataPolling() {
+            if (faceDataInterval) {
+                clearInterval(faceDataInterval);
+                faceDataInterval = null;
+            }
+        }
+
+        // 顔認識結果の更新
+        function updateFaceResults(faces) {
+            faceCount.textContent = faces.length;
+            
+            // オーバーレイの更新
+            updateFaceOverlay(faces);
+            
+            if (faces.length === 0) {
+                faceResults.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Recognition results will appear when faces are detected</p>';
+                return;
+            }
+
+            faceResults.innerHTML = faces.map((face, index) => `
+                <div class="face-item">
+                    <h4>Face ${index + 1}</h4>
+                    <div class="age-badge">Age: ${face.age}</div>
+                    <div class="face-matches">
+                        ${face.matches.map(match => `
+                            <div class="match-item">
+                                <span class="match-name">${match.name}</span>
+                                <span class="match-similarity">${match.similarity}%</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 顔認識オーバーレイの更新
+        function updateFaceOverlay(faces) {
+            faceOverlay.innerHTML = '';
+            
+            if (faces.length === 0) return;
+            
+            faces.forEach((face, index) => {
+                const [x, y, x2, y2] = face.bbox;
+                const width = x2 - x;
+                const height = y2 - y;
+                
+                // ビデオ要素の実際のサイズを取得
+                const videoElement = document.getElementById('videoStream');
+                const videoRect = videoElement.getBoundingClientRect();
+                const containerRect = faceOverlay.getBoundingClientRect();
+                
+                // 座標をコンテナサイズに合わせて調整
+                const scaleX = containerRect.width / videoElement.naturalWidth;
+                const scaleY = containerRect.height / videoElement.naturalHeight;
+                
+                const adjustedX = x * scaleX;
+                const adjustedY = y * scaleY;
+                const adjustedWidth = width * scaleX;
+                const adjustedHeight = height * scaleY;
+                
+                // 顔の枠を作成
+                const faceBox = document.createElement('div');
+                faceBox.className = 'face-box';
+                if (face.matches[0].name === 'Unknown') {
+                    faceBox.classList.add('unknown');
+                }
+                
+                faceBox.style.left = adjustedX + 'px';
+                faceBox.style.top = adjustedY + 'px';
+                faceBox.style.width = adjustedWidth + 'px';
+                faceBox.style.height = adjustedHeight + 'px';
+                
+                // 名前ラベルを作成
+                const nameLabel = document.createElement('div');
+                nameLabel.className = 'face-label';
+                if (face.matches[0].name === 'Unknown') {
+                    nameLabel.classList.add('unknown');
+                }
+                nameLabel.textContent = `${face.matches[0].name} (${face.matches[0].similarity}%)`;
+                
+                // 年齢ラベルを作成
+                const ageLabel = document.createElement('div');
+                ageLabel.className = 'age-label';
+                ageLabel.textContent = face.age;
+                
+                faceBox.appendChild(nameLabel);
+                faceBox.appendChild(ageLabel);
+                faceOverlay.appendChild(faceBox);
+            });
+        }
+
+        // FPS計算
+        function updateFPS() {
+            fpsCounter++;
+            const now = Date.now();
+            if (now - lastFpsTime >= 1000) {
+                fpsCounterElement.textContent = fpsCounter;
+                fpsCounter = 0;
+                lastFpsTime = now;
+            }
+        }
+    </script>
+</body>
+</html>
